@@ -84,9 +84,18 @@ def setup(args):
     config.states = (0, 1, 2, 3, 4, 5)
     # ------------------------------------------------------------------------
 
-    # ---- Override the defaults below (these may be changed at anytime) ----
 
-    #config.state_colors = [(0.9,0,0), (0,0.9,0), (0,0,0)]
+    colors = {
+        "chapparal" : (0.5, 0.5, 0.5),
+        "canyon" : (1.0, 0.5, 0.5),
+        "forest" : (0.0, 1.0, 0.0),
+        "lake" : (0.0, 0.0, 1.0),
+        "burning" : (1.0, 0.0, 0.0),
+        "burned" : (0.0, 0.0, 0.0)
+    }
+
+
+    config.state_colors = list(colors.values())
     config.wrap = False
     # config.num_generations = 150
     # config.grid_dims = (100, 100)
