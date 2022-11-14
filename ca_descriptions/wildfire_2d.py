@@ -4,6 +4,7 @@
 # --- Set up executable path, do not edit ---
 import sys
 import inspect
+import random
 this_file_loc = (inspect.stack()[0][1])
 main_dir_loc = this_file_loc[:this_file_loc.index('ca_descriptions')]
 sys.path.append(main_dir_loc)
@@ -22,82 +23,69 @@ P_0 = 0.58
 P_W = 1.0
 P_VEG = {'chaparral': 0.2, 'canyon': 0.4, 'forest': -0.3, 'lake': -1.0}
 
+p_burn_chap = P_0 * (1 + P_VEG['chaparral']) * P_W
+p_burn_canyon = P_0 * (1 + P_VEG['canyon']) * P_W
+p_burn_forest = P_0 * (1 + P_VEG['forest']) * P_W
+p_burn_lake = P_0 * (1 + P_VEG['lake']) * P_W
 
+#This function does not currently account for fuel and burn time
 def transition_func(grid, neighbourstates, neighbourcounts):
-    # TODO:
-    # - include burning time of each terrain type in the model
-    # - increase p_burn probability depending on the number of burning neighbours
-    # - implement wind effect
-    # - refactor the code (for loop to calculate p_burn? separate function?)
-    # - pre define state colors, grid size, grid state in the setup function
-
-    # not burning terrain types:
-    # 0 - chaparral
-    # 1 - canyon
-    # 2 - forest
-    # 3 - lake
-    # 4 - town
-    # other:
-    # 5 - burning
-    # 6 - completely burned
-
-    # if a cell is burning (state 5), it will be completely burned down (state 6) in the next timestep
     burning_cells = (grid == 5)
+    nw, n, ne, w, e, sw, s, se = neighbourstates
 
-    # if at least one nearest-neighbour of a cell is burning (state 5) then catch fire with probability Pburn,
-    at_least_one_burning_neighbour = (neighbourcounts[5] > 0)
-
-    p_burn_chap = P_0 * (1 + P_VEG['chaparral']) * P_W
-    p_burn_canyon = P_0 * (1 + P_VEG['canyon']) * P_W
-    p_burn_forest = P_0 * (1 + P_VEG['forest']) * P_W
-    p_burn_lake = P_0 * (1 + P_VEG['lake']) * P_W
-
-    probability_arr_chap = np.random.rand(*grid.shape) < p_burn_chap
-    probability_arr_can = np.random.rand(*grid.shape) < p_burn_canyon
-    probability_arr_for = np.random.rand(*grid.shape) < p_burn_forest
-    probability_arr_lake = np.random.rand(*grid.shape) < p_burn_lake
+    nw_wind_prob = np.cos(np.deg2rad(45))
+    ne_wind_prob = np.cos(np.deg2rad(45))
+    w_wind_prob = np.cos(np.deg2rad(90))
+    e_wind_prob = np.cos(np.deg2rad(90))
+    sw_wind_prob = np.cos(np.deg2rad(135))
+    se_wind_prob = np.cos(np.deg2rad(135))
+    s_wind_prob = -1
+    n_wind_prob = 1
 
     chaparral_cells = (grid == 0)
     canyon_cells = (grid == 1)
     forest_cells = (grid == 2)
-    lake_cells = (grid == 3)
 
-    to_burning_state_chap = chaparral_cells & at_least_one_burning_neighbour & probability_arr_chap
-    to_burning_state_can = canyon_cells & at_least_one_burning_neighbour & probability_arr_can
-    to_burning_state_for = forest_cells & at_least_one_burning_neighbour & probability_arr_for
-    to_burning_state_lake = lake_cells & at_least_one_burning_neighbour & probability_arr_lake
+    #2d arrays of probability with wind accounted for, some randomness implemented
+    nw_burn_prob = (nw == 5) * (np.random.rand(*grid.shape) * (nw_wind_prob + 1))
+    n_burn_prob = (n == 5) * (np.random.rand(*grid.shape) * (n_wind_prob + 1))
+    ne_burn_prob = (ne == 5) * (np.random.rand(*grid.shape) * (ne_wind_prob + 1))
+    w_burn_prob = (w == 5) * (np.random.rand(*grid.shape) * (w_wind_prob + 1))
+    e_burn_prob = (e == 5) * (np.random.rand(*grid.shape) * (e_wind_prob + 1))
+    sw_burn_prob = (sw == 5) * (np.random.rand(*grid.shape) * (sw_wind_prob + 1))
+    s_burn_prob = (s == 5) * (np.random.rand(*grid.shape) * (s_wind_prob + 1))
+    se_burn_prob = (se == 5) * (np.random.rand(*grid.shape) * (se_wind_prob + 1))
 
+    burn_probs = (nw_burn_prob, n_burn_prob, ne_burn_prob, w_burn_prob, 
+        e_burn_prob, sw_burn_prob, s_burn_prob, se_burn_prob)
+    
+    grid[get_to_burning_state(grid, burn_probs, forest_cells, p_burn_forest)] = 5
+    grid[get_to_burning_state(grid, burn_probs, chaparral_cells, p_burn_chap)] = 5
+    grid[get_to_burning_state(grid, burn_probs, canyon_cells, p_burn_canyon)] = 5
     grid[burning_cells] = 6
-    grid[to_burning_state_chap] = 5
-    grid[to_burning_state_can] = 5
-    grid[to_burning_state_for] = 5
-    grid[to_burning_state_lake] = 5
 
     return grid
 
-    #This function does not currently account for fuel and burn time
-def new_transition_func(grid, neighbourstates, neighbourcounts):
-    burning_cells = (grid == 4)
+def get_to_burning_state(grid, burn_probs, terr_cells, terr_p_burn):
+    (nw_burn_prob, n_burn_prob, ne_burn_prob, w_burn_prob, e_burn_prob, 
+        sw_burn_prob, s_burn_prob, se_burn_prob) = burn_probs
+    nw_terr_burn_prob = nw_burn_prob * terr_p_burn
+    n_terr_burn_prob = n_burn_prob * terr_p_burn
+    ne_terr_burn_prob = ne_burn_prob * terr_p_burn
+    w_terr_burn_prob = w_burn_prob * terr_p_burn
+    e_terr_burn_prob = e_burn_prob * terr_p_burn
+    sw_terr_burn_prob = sw_burn_prob * terr_p_burn
+    s_terr_burn_prob = s_burn_prob * terr_p_burn
+    se_terr_burn_prob = se_burn_prob * terr_p_burn
 
-    num_burning_neighbours = neighbourcounts[5]
+    sum_terr_burn_prob = nw_terr_burn_prob + n_terr_burn_prob + ne_terr_burn_prob
+    sum_terr_burn_prob = sum_terr_burn_prob + w_terr_burn_prob + e_terr_burn_prob + sw_terr_burn_prob
+    sum_terr_burn_prob = sum_terr_burn_prob + s_terr_burn_prob + se_terr_burn_prob
 
-    nw, n, ne, w, e, sw, s, se = neighbourstates
+    probability_arr_tf = np.random.rand(*grid.shape) < sum_terr_burn_prob
 
-    nw_wind_prob, ne_wind_prob = np.degrees()
+    return probability_arr_tf & terr_cells
 
-    nw_burning_cells = (nw == 5)
-    n_burning_cells = (n == 5)
-    ne_burning_cells = (ne == 5)
-    w_burning_cells = (w == 5)
-    e_burning_cells = (e == 5)
-    sw_burning_cells = (sw == 5)
-    s_burning_cells = (s == 5)
-    se_burning_cells = (se == 5)
-
-
-
-
-    pass
 
 
 def setup(args):
