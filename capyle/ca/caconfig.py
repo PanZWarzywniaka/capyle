@@ -2,6 +2,7 @@ import sys
 import numpy as np
 from capyle.utils import save, get_metadata, scale_array, gens_to_dims
 from capyle.ca import Neighbourhood
+import pandas
 
 
 class CAConfig(object):
@@ -40,9 +41,11 @@ class CAConfig(object):
 
         # initial grid
         if self.initial_grid is None:
-            fillstate = self.states[0] if self.states is not None else 0
-            self.initial_grid = np.zeros(self.grid_dims, dtype=type(fillstate))
-            self.initial_grid.fill(fillstate)
+            self.initial_grid = np.genfromtxt('grid.csv', delimiter=',')
+
+            # fillstate = self.states[0] if self.states is not None else 0
+            # self.initial_grid = np.zeros(self.grid_dims, dtype=type(fillstate))
+            # self.initial_grid.fill(fillstate)
 
         # neighbourhood array
         if self.nhood_arr is None:
