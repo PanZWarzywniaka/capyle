@@ -19,6 +19,7 @@ class CAConfig(object):
         self.num_generations = None
         self.nhood_arr = None
         self.initial_grid = None
+        self.wind_dir = None #wind direction stays constant over runtime
         # default wrapping behaviour is True
         self.wrap = True
         self.default_paths()
