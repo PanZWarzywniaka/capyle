@@ -2,9 +2,10 @@
 # Dimensions: 2
 
 # --- Set up executable path, do not edit ---
+
+
 import sys
 import inspect
-import random
 this_file_loc = (inspect.stack()[0][1])
 main_dir_loc = this_file_loc[:this_file_loc.index('ca_descriptions')]
 sys.path.append(main_dir_loc)
@@ -12,99 +13,66 @@ sys.path.append(main_dir_loc + 'capyle')
 sys.path.append(main_dir_loc + 'capyle/ca')
 sys.path.append(main_dir_loc + 'capyle/guicomponents')
 # ---
-
 from capyle.ca import Grid2D, Neighbourhood, CAConfig, randomise2d
 import capyle.utils as utils
 import numpy as np
-
-
 # constants
 P_0 = 0.58
 P_W = 1.0
 P_VEG = {'chaparral': 0.2, 'canyon': 0.4, 'forest': -0.3, 'lake': -1.0}
 
-p_burn_chap = P_0 * (1 + P_VEG['chaparral']) * P_W
-p_burn_canyon = P_0 * (1 + P_VEG['canyon']) * P_W
-p_burn_forest = P_0 * (1 + P_VEG['forest']) * P_W
-p_burn_lake = P_0 * (1 + P_VEG['lake']) * P_W
 
-#This function does not currently account for fuel and burn time
 def transition_func(grid, neighbourstates, neighbourcounts):
+    # TODO:
+    # - include burning time of each terrain type in the model
+    # - increase p_burn probability depending on the number of burning neighbours
+    # - implement wind effect
+    # - refactor the code (for loop to calculate p_burn? separate function?)
+    # - pre define state colors, grid size, grid state in the setup function
+
+    # not burning terrain types:
+    # 0 - chaparral
+    # 1 - canyon
+    # 2 - forest
+    # 3 - lake
+    # 4 - town
+    # other:
+    # 5 - burning
+    # 6 - completely burned
+
+    # if a cell is burning (state 4), it will be completely burned down (state 5) in the next timestep
     burning_cells = (grid == 5)
-    nw, n, ne, w, e, sw, s, se = neighbourstates
 
-    #named as direction of wind origin (
-    # e.g. wind probability coming from a north neighbour )
-    nw_wind_prob = np.cos(np.deg2rad(45))
-    ne_wind_prob = np.cos(np.deg2rad(45))
-    w_wind_prob = np.cos(np.deg2rad(90))
-    e_wind_prob = np.cos(np.deg2rad(90))
-    sw_wind_prob = np.cos(np.deg2rad(135))
-    se_wind_prob = np.cos(np.deg2rad(135))
-    s_wind_prob = -1
-    n_wind_prob = 1
+    # if at least one nearest-neighbour of a cell is burning (state 4) then catch fire with probability Pburn,
+    at_least_one_burning_neighbour = (neighbourcounts[5] > 0)
 
-    #boolean 2D array for each cell type
+    p_burn_chap = P_0 * (1 + P_VEG['chaparral']) * P_W
+    p_burn_canyon = P_0 * (1 + P_VEG['canyon']) * P_W
+    p_burn_forest = P_0 * (1 + P_VEG['forest']) * P_W
+    p_burn_lake = P_0 * (1 + P_VEG['lake']) * P_W
+
+    probability_arr_chap = np.random.rand(*grid.shape) < p_burn_chap
+    probability_arr_can = np.random.rand(*grid.shape) < p_burn_canyon
+    probability_arr_for = np.random.rand(*grid.shape) < p_burn_forest
+    probability_arr_lake = np.random.rand(*grid.shape) < p_burn_lake
+
     chaparral_cells = (grid == 0)
     canyon_cells = (grid == 1)
     forest_cells = (grid == 2)
+    lake_cells = (grid == 3)
 
-    #2d arrays of probability with wind accounted for, some randomness implemented
-    #boolean array as in (nw == 5) will give probabilites of 0 for no burning nw neighbour
-    nw_burn_prob = (nw == 5) * (np.random.rand(*grid.shape) * (nw_wind_prob + 1))
-    n_burn_prob = (n == 5) * (np.random.rand(*grid.shape) * (n_wind_prob + 1))
-    ne_burn_prob = (ne == 5) * (np.random.rand(*grid.shape) * (ne_wind_prob + 1))
-    w_burn_prob = (w == 5) * (np.random.rand(*grid.shape) * (w_wind_prob + 1))
-    e_burn_prob = (e == 5) * (np.random.rand(*grid.shape) * (e_wind_prob + 1))
-    sw_burn_prob = (sw == 5) * (np.random.rand(*grid.shape) * (sw_wind_prob + 1))
-    s_burn_prob = (s == 5) * (np.random.rand(*grid.shape) * (s_wind_prob + 1))
-    se_burn_prob = (se == 5) * (np.random.rand(*grid.shape) * (se_wind_prob + 1))
+    to_burning_state_chap = chaparral_cells & at_least_one_burning_neighbour & probability_arr_chap
+    to_burning_state_can = canyon_cells & at_least_one_burning_neighbour & probability_arr_can
+    to_burning_state_for = forest_cells & at_least_one_burning_neighbour & probability_arr_for
+    to_burning_state_lake = lake_cells & at_least_one_burning_neighbour & probability_arr_lake
 
-    
-    burn_probs = (nw_burn_prob, n_burn_prob, ne_burn_prob, w_burn_prob, 
-        e_burn_prob, sw_burn_prob, s_burn_prob, se_burn_prob)
-    
-    #determine fire spread in whole grid for each terrain type
-    grid[get_to_burning_state(grid, burn_probs, forest_cells, p_burn_forest)] = 5
-    grid[get_to_burning_state(grid, burn_probs, chaparral_cells, p_burn_chap)] = 5
-    grid[get_to_burning_state(grid, burn_probs, canyon_cells, p_burn_canyon)] = 5
-
-    #all current burning states become burnt out
     grid[burning_cells] = 6
+    grid[to_burning_state_chap] = 5
+    grid[to_burning_state_can] = 5
+    grid[to_burning_state_for] = 5
+    grid[to_burning_state_lake] = 5
 
     return grid
-
-#Get a 2D boolean array determining fire spread for specific terrin types
-# grid - the current state of the simulation
-# burn_probs - probability of fire spread for each cell and direction
-# terr_cells - 2D array of the terrain cells
-# terr_p_burn - constant probability of fire spread for a terrain type
-def get_to_burning_state(grid, burn_probs, terr_cells, terr_p_burn):
-    #unpack the different probabilities of fire spread over wind direction
-    (nw_burn_prob, n_burn_prob, ne_burn_prob, w_burn_prob, e_burn_prob, 
-        sw_burn_prob, s_burn_prob, se_burn_prob) = burn_probs
-
-    #calculate directional probabilities of fire spread in specific terrain
-    nw_terr_burn_prob = nw_burn_prob * terr_p_burn
-    n_terr_burn_prob = n_burn_prob * terr_p_burn
-    ne_terr_burn_prob = ne_burn_prob * terr_p_burn
-    w_terr_burn_prob = w_burn_prob * terr_p_burn
-    e_terr_burn_prob = e_burn_prob * terr_p_burn
-    sw_terr_burn_prob = sw_burn_prob * terr_p_burn
-    s_terr_burn_prob = s_burn_prob * terr_p_burn
-    se_terr_burn_prob = se_burn_prob * terr_p_burn
-
-    #sum all of the probabilities of fire spread to specific cells
-    sum_terr_burn_prob = nw_terr_burn_prob + n_terr_burn_prob + ne_terr_burn_prob
-    sum_terr_burn_prob = sum_terr_burn_prob + w_terr_burn_prob + e_terr_burn_prob + sw_terr_burn_prob
-    sum_terr_burn_prob = sum_terr_burn_prob + s_terr_burn_prob + se_terr_burn_prob
-
-    #determine fire spread boolean values depending on random threshold
-    probability_arr_tf = np.random.rand(*grid.shape) < sum_terr_burn_prob
-
-    #returns a 2D array of booleans
-    return probability_arr_tf & terr_cells
-
 
 
 def setup(args):
@@ -117,7 +85,7 @@ def setup(args):
     config.grid_dims = (40, 40)
     # ------------------------------------------------------------------------
 
-
+    # ---- Override the defaults below (these may be changed at anytime) ----
     colors = {
         "chapparal" : (1.0, 0.8, 0),
         "canyon" : (1.0, 0.5, 0.5),
