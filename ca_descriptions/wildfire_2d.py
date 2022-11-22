@@ -3,29 +3,32 @@
 
 # --- Set up executable path, do not edit ---
 
+import math
+import numpy as np
+
 import inspect
 import sys
+import os
+import json
 this_file_loc = (inspect.stack()[0][1])
 main_dir_loc = this_file_loc[:this_file_loc.index('ca_descriptions')]
 sys.path.append(main_dir_loc)
 sys.path.append(main_dir_loc + 'capyle')
 sys.path.append(main_dir_loc + 'capyle/ca')
 sys.path.append(main_dir_loc + 'capyle/guicomponents')
-from capyle.ca import Grid2D, Neighbourhood, CAConfig, randomise2d
 import capyle.utils as utils
-import numpy as np
-import math
-
+from capyle.ca import Grid2D, Neighbourhood, CAConfig, randomise2d
 # ---
 
 # constants
 P_0 = 0.58
 P_W = 1.0
-P_VEG = {'chaparral': 0.3, 'canyon': 0.8,
-         'forest': -0.6, 'lake': -1.0, 'town': 1.0}
-V = 0.0   # What if wind 0?
+P_VEG = {'chaparral': 0.2, 'canyon': 0.9,
+         'forest': -0.5, 'lake': -1.0, 'town': 1.0}
+V = 1.0   # What if wind 0?
 C_1 = 0.045
 C_2 = 0.131
+
 WIND_DIR = 'N'  # wind direction
 COS_VALS = {'NW': [1.0, 0.707107, 0, 0.707107, -0.707107, 0, -0.707107, -1.0],
             'N': [0.707107, 1.0, 0.707107, 0, 0, -0.707107, -1.0, -0.707107],
@@ -37,8 +40,38 @@ COS_VALS = {'NW': [1.0, 0.707107, 0, 0.707107, -0.707107, 0, -0.707107, -1.0],
             'SE': [-1.0, -0.707107, 0, -0.707107, 0.707107, 0, 0.707107, 1.0]
             }
 
+INTERVENTION_TIME = 250
+WATER_DROP_COORDS = [200,210,300,380]
 
-def transition_func(grid, neighbourstates, neighbourcounts, fuel_grid):
+def report_game_over(grid,counter):
+    files = []
+    for (_, _, filenames) in os.walk("results"):
+        files.extend(filenames)
+        break
+    new_id = 1
+    if files:
+        new_id = int(files[-1].split(".")[0]) + 1
+    path = f"results/{new_id}"
+    print("Writing file to", path)
+    np.savetxt(f"{path}.csv", grid, delimiter=",")
+
+    to_json = {
+        "Wind directions": WIND_DIR,
+        "Wind velocity": V,
+        "Town reached at": int(counter[0]),
+        }
+
+    with open(f"{path}.json", "w") as outfile:
+        json.dump(to_json, outfile)
+
+
+def is_town_reached(grid) -> bool:
+    town = grid[350:370, 150:170]
+    return np.any(town == 5)
+
+
+def transition_func(grid, neighbourstates, neighbourcounts, fuel_grid, reached_town,counter):
+    counter += 1
     # not burning terrain types:
     # 0 - chaparral
     # 1 - canyon
@@ -85,31 +118,45 @@ def transition_func(grid, neighbourstates, neighbourcounts, fuel_grid):
 
     to_burning_state = cells_to_ignite  # & at_least_one_burning_neighbour
 
+    if counter[0] == INTERVENTION_TIME:
+        water_grid = np.full(grid.shape, False)
+        water_grid[WATER_DROP_COORDS[0]:WATER_DROP_COORDS[1],WATER_DROP_COORDS[2]:WATER_DROP_COORDS[3]] = True
+        grid[water_grid] = 3
+
     grid[to_burning_state] = 5
     grid[dead_cells] = 6
+
+    print(reached_town)
+    if not np.any(reached_town): #check if fire reached the town
+        reached_town[0] = is_town_reached(grid)
+        if np.any(reached_town):
+            report_game_over(grid,counter)
+
+
 
     return grid
 
 
 def setup(args):
-    config_path = args[0]
-    config = utils.load(config_path)
+    config_path=args[0]
+    config=utils.load(config_path)
     # ---THE CA MUST BE RELOADED IN THE GUI IF ANY OF THE BELOW ARE CHANGED---
-    config.title = "Wildfire simulation"
-    config.dimensions = 2
-    config.states = (0, 1, 2, 3, 4, 5, 6)
-    config.grid_dims = (400, 400)
+    config.title="Wildfire simulation"
+    config.dimensions=2
+    config.states=(0, 1, 2, 3, 4, 5, 6)
+    config.grid_dims=(400, 400)
 
-    grid = np.genfromtxt('grid.csv', delimiter=',')
-    grid = np.repeat(grid, 10, axis=0)
-    grid = np.repeat(grid, 10, axis=1)
+    grid=np.genfromtxt('grid.csv', delimiter=',')
+    grid=np.repeat(grid, 10, axis=0)
+    grid=np.repeat(grid, 10, axis=1)
 
-    config.initial_grid = grid
+    config.initial_grid=grid
+
 # ------------------------------------------------------------------------
 
 
 # ---- Override the defaults below (these may be changed at anytime) ----
-    colors = {
+    colors={
         "chapparal": (1.0, 0.8, 0),
         "canyon": (1.0, 0.5, 0.5),
         "forest": (0.0, 1.0, 0.0),
@@ -119,8 +166,8 @@ def setup(args):
         "burned": (0.0, 0.0, 0.0)
     }
 
-    config.state_colors = list(colors.values())
-    config.wrap = False
+    config.state_colors=list(colors.values())
+    config.wrap=False
    # config.num_generations = 1
    # config.grid_dims = (100, 100)
 
@@ -135,62 +182,68 @@ def setup(args):
 
 def setup_fuel_grid(grid):
 
-    fuel_grid = np.zeros(grid.shape)
-    chap = (grid == 0)
-    fuel_grid[chap] = 28
+    fuel_grid=np.zeros(grid.shape)
+    chap=(grid == 0)
+    fuel_grid[chap]=28
 
-    canyon = (grid == 1)
-    fuel_grid[canyon] = 1
+    canyon=(grid == 1)
+    fuel_grid[canyon]=3
 
-    forest = (grid == 2)
-    fuel_grid[forest] = 120
+    forest=(grid == 2)
+    fuel_grid[forest]=120
 
-    lake = (grid == 3)
-    fuel_grid[lake] = -1
+    lake=(grid == 3)
+    fuel_grid[lake]=-1
 
-    town = (grid == 4)
-    fuel_grid[town] = 5
+    town=(grid == 4)
+    fuel_grid[town]=5
     return fuel_grid
 
 
 def setup_ignite_probabilities_grid(grid):
 
-    ignite_grid = np.zeros(grid.shape)
-    chap = (grid == 0)
-    ignite_grid[chap] = P_0 * (1 + P_VEG['chaparral'])
+    ignite_grid=np.zeros(grid.shape)
+    chap=(grid == 0)
+    ignite_grid[chap]=P_VEG['chaparral']
 
-    canyon = (grid == 1)
-    ignite_grid[canyon] = P_0 * (1 + P_VEG['canyon'])
+    canyon=(grid == 1)
+    ignite_grid[canyon]=P_VEG['canyon']
 
-    forest = (grid == 2)
-    ignite_grid[forest] = P_0 * (1 + P_VEG['forest'])
+    forest=(grid == 2)
+    ignite_grid[forest]=P_VEG['forest']
 
-    lake = (grid == 3)
-    ignite_grid[lake] = P_0 * (1 + P_VEG['lake'])
+    lake=(grid == 3)
+    ignite_grid[lake]=P_VEG['lake']
 
-    town = (grid == 4)
-    ignite_grid[town] = P_0 * (1 + P_VEG['town'])
+    town=(grid == 4)
+    ignite_grid[town]=P_VEG['town']
+
+    ignite_grid += 1
+    ignite_grid *= P_0
+    ignite_grid *= 0.2
     return ignite_grid
 
 
 def main():
     # Open the config object
-    config = setup(sys.argv[1:])
+    config=setup(sys.argv[1:])
 
     # Create fuel numpy array
-    fuel_grid = setup_fuel_grid(config.initial_grid)
-
+    fuel_grid=setup_fuel_grid(config.initial_grid)
+    config.num_generations = 1000
     # Set initial burning cell
-    config.initial_grid[0][0] = 5
+    config.initial_grid[0][0]=5  # top left corner
+    # config.initial_grid[0][-1] = 5 #top right corner
 
     # Create ignite probabilities array
-    # ignite_prob_grid = setup_ignite_probabilities_grid(config.initial_grid)
 
     # Create grid object
-    grid = Grid2D(config, (transition_func, fuel_grid))
+    reached_town = np.array([False])
+    counter = np.array([0])
+    grid=Grid2D(config, (transition_func, fuel_grid, reached_town,counter))
 
     # Run the CA, save grid state every generation to timeline
-    timeline = grid.run()
+    timeline=grid.run()
 
     # save updated config to file
     config.save()
