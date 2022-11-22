@@ -2,24 +2,27 @@
 # Dimensions: 2
 
 # --- Set up executable path, do not edit ---
-import sys
+
 import inspect
+import sys
 this_file_loc = (inspect.stack()[0][1])
 main_dir_loc = this_file_loc[:this_file_loc.index('ca_descriptions')]
 sys.path.append(main_dir_loc)
 sys.path.append(main_dir_loc + 'capyle')
 sys.path.append(main_dir_loc + 'capyle/ca')
 sys.path.append(main_dir_loc + 'capyle/guicomponents')
-# ---
 from capyle.ca import Grid2D, Neighbourhood, CAConfig, randomise2d
 import capyle.utils as utils
 import numpy as np
 import math
 
+# ---
+
 # constants
 P_0 = 0.58
 P_W = 1.0
-P_VEG = {'chaparral': 0.3, 'canyon': 0.8, 'forest': -0.6, 'lake': -1.0, 'town': 1.0}
+P_VEG = {'chaparral': 0.3, 'canyon': 0.8,
+         'forest': -0.6, 'lake': -1.0, 'town': 1.0}
 V = 0.0   # What if wind 0?
 C_1 = 0.045
 C_2 = 0.131
@@ -32,7 +35,7 @@ COS_VALS = {'NW': [1.0, 0.707107, 0, 0.707107, -0.707107, 0, -0.707107, -1.0],
             'SW': [0, -0.707107, -1.0, 0.707107, -0.707107, 1.0, 0.707107, 0],
             'S': [-0.707107, -1.0, -0.707107, 0, 0, 0.707107, 1.0, 0.707107],
             'SE': [-1.0, -0.707107, 0, -0.707107, 0.707107, 0, 0.707107, 1.0]
-           }
+            }
 
 
 def transition_func(grid, neighbourstates, neighbourcounts, fuel_grid):
@@ -64,7 +67,8 @@ def transition_func(grid, neighbourstates, neighbourcounts, fuel_grid):
         # update wind probability grid
         # P_W = exp[V(c1 + c2(cos(a) - 1))]
         # where a is angle between wind direction and current burning direction
-        wind_prob_grid[curr_direction_burning] += math.exp(V*(C_1 + C_2*(cos_a - 1)))
+        wind_prob_grid[curr_direction_burning] += math.exp(
+            V*(C_1 + C_2*(cos_a - 1)))
 
     # set up grid with base burn probabilities for each cell
     ignite_prob_grid = setup_ignite_probabilities_grid(grid)
@@ -79,7 +83,7 @@ def transition_func(grid, neighbourstates, neighbourcounts, fuel_grid):
     random_grid = np.random.rand(*grid.shape)
     cells_to_ignite = random_grid < ignite_prob_grid
 
-    to_burning_state = cells_to_ignite #& at_least_one_burning_neighbour
+    to_burning_state = cells_to_ignite  # & at_least_one_burning_neighbour
 
     grid[to_burning_state] = 5
     grid[dead_cells] = 6
@@ -94,11 +98,17 @@ def setup(args):
     config.title = "Wildfire simulation"
     config.dimensions = 2
     config.states = (0, 1, 2, 3, 4, 5, 6)
-    config.grid_dims = (40, 40)
-    config.initial_grid = np.genfromtxt('grid.csv', delimiter=',')
-    # ------------------------------------------------------------------------
+    config.grid_dims = (400, 400)
 
-    # ---- Override the defaults below (these may be changed at anytime) ----
+    grid = np.genfromtxt('grid.csv', delimiter=',')
+    grid = np.repeat(grid, 10, axis=0)
+    grid = np.repeat(grid, 10, axis=1)
+
+    config.initial_grid = grid
+# ------------------------------------------------------------------------
+
+
+# ---- Override the defaults below (these may be changed at anytime) ----
     colors = {
         "chapparal": (1.0, 0.8, 0),
         "canyon": (1.0, 0.5, 0.5),
@@ -111,10 +121,10 @@ def setup(args):
 
     config.state_colors = list(colors.values())
     config.wrap = False
-    # config.num_generations = 1
-    # config.grid_dims = (100, 100)
+   # config.num_generations = 1
+   # config.grid_dims = (100, 100)
 
-    # ----------------------------------------------------------------------
+   # ----------------------------------------------------------------------
 
     if len(args) == 2:
         config.save()
@@ -174,7 +184,7 @@ def main():
     config.initial_grid[0][0] = 5
 
     # Create ignite probabilities array
-    #ignite_prob_grid = setup_ignite_probabilities_grid(config.initial_grid)
+    # ignite_prob_grid = setup_ignite_probabilities_grid(config.initial_grid)
 
     # Create grid object
     grid = Grid2D(config, (transition_func, fuel_grid))
