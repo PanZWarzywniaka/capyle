@@ -44,15 +44,22 @@ INTERVENTION_TIME = 250
 WATER_DROP_COORDS = [200,210,300,380]
 
 def report_game_over(grid,counter):
+    DIR_PATH = "results"
+
+    #ensure direcotry exists
+    if not os.path.exists(DIR_PATH):
+        os.mkdir(DIR_PATH)
+
     files = []
-    for (_, _, filenames) in os.walk("results"):
+    for (_, _, filenames) in os.walk(DIR_PATH):
         files.extend(filenames)
         break
+
     new_id = 1
     if files:
         new_id = int(files[-1].split(".")[0]) + 1
-    path = f"results/{new_id}"
-    print("Writing file to", path)
+    path = os.path.join(DIR_PATH,str(new_id))
+    print(f"Writing file to {path} at step {counter}")
     np.savetxt(f"{path}.csv", grid, delimiter=",")
 
     to_json = {
@@ -126,7 +133,6 @@ def transition_func(grid, neighbourstates, neighbourcounts, fuel_grid, reached_t
     grid[to_burning_state] = 5
     grid[dead_cells] = 6
 
-    print(reached_town)
     if not np.any(reached_town): #check if fire reached the town
         reached_town[0] = is_town_reached(grid)
         if np.any(reached_town):
