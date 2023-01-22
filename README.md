@@ -1,3 +1,30 @@
+# Team 10 Input
+
+## Simulating Wild fires in CAPyLE
+
+Added new cellular automata description `wildfire_2d.py` that simulates spread of wild fire.
+
+//3 zdjecia
+
+
+Our model defines 5 terrain types with diffrent propabilities of catching a fire and diffrent burn time.
+
+- Dense forest (green colour), difficult to ignite but can burn for up to one month, 
+- Chaparral (yellow colour), catches fire quite easily, can burn for a period of several days.
+- Canyon (pink-ish colour), very easy to catch fire, but burns for only several hours
+- Lake (blue colour), can't be ignited
+
+
+Our model takes into acount wind direction and velocity affecting spread of fire.
+
+Once the fire reaches the town, simulaton reports results in `results/` directory: 
+- `.json` file with simulation parameters
+- grid state when fire reached the town
+
+Our model can be used to simulate firebrigade interventions. To simulate water drops specify time of intervention and bouding box coorinates. See example:
+
+//zdjecie
+
 # CAPyLE
 CAPyLE is a cross-platform teaching tool designed and built as part of a final year computer science project. It aims to aid the teaching of cellular automata and how they can be used to model natural systems.
 
