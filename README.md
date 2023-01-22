@@ -1,13 +1,16 @@
-# Team 10 Input
-
 ## Simulating Wild fires in CAPyLE
 
 Added new cellular automata description `wildfire_2d.py` that simulates spread of wild fire.
 
-//3 zdjecia
+<div display="flex" flex-direction="row" >
+<img src="https://user-images.githubusercontent.com/38562250/213926036-304e2eed-466c-458a-91dd-854516da1c14.png" width="300" height="300"/>
+<img src="https://user-images.githubusercontent.com/38562250/213926267-316b8127-7599-4080-a4b9-7477bae909ba.png" width="300" height="300"/>
+<img src="https://user-images.githubusercontent.com/38562250/213926272-22c108da-c060-4a0c-9d26-f246c68ae311.png" width="300" height="300"/>
+</div>
 
+Fire spreading on a 2D grid
 
-Our model defines 5 terrain types with diffrent propabilities of catching a fire and diffrent burn time.
+Our model defines terrain types with diffrent propabilities of catching a fire and diffrent the burn time.
 
 - Dense forest (green colour), difficult to ignite but can burn for up to one month, 
 - Chaparral (yellow colour), catches fire quite easily, can burn for a period of several days.
@@ -21,9 +24,11 @@ Once the fire reaches the town, simulaton reports results in `results/` director
 - `.json` file with simulation parameters
 - grid state when fire reached the town
 
-Our model can be used to simulate firebrigade interventions. To simulate water drops specify time of intervention and bouding box coorinates. See example:
+Our model can be used to simulate firebrigade interventions. To simulate water drops specify time of intervention and bouding box coorinates in `wildfire_2d.py`. For example:
 
-//zdjecie
+![wild_fire_water_drop](https://user-images.githubusercontent.com/38562250/213927046-4d687bd9-9a4a-4b3d-9906-b34a63a63afb.png)
+
+Initial grid is defined by `grid.csv`.
 
 # CAPyLE
 CAPyLE is a cross-platform teaching tool designed and built as part of a final year computer science project. It aims to aid the teaching of cellular automata and how they can be used to model natural systems.
